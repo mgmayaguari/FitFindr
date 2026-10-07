@@ -13,6 +13,7 @@ Build and test your three tools in `tools.py` first. Then come here.
     python agent.py          runs both example paths below
 """
 
+import re
 import config
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
@@ -44,6 +45,7 @@ def new_session(query: str, wardrobe: dict) -> dict:
         "outfit_suggestion": None,   # what suggest_outfit returned
         "fit_card": None,            # what create_fit_card returned
         "error": None,               # set when the run ended early
+        "relaxed": [],               # constraints dropped to get a result
     }
 
 
@@ -106,10 +108,70 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         than a stack trace. The import is already at the top of this file.
     """
     session = new_session(query, wardrobe)
+    parsed = parse_query(query)
+    session["parsed"] = dict(parsed)
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
+    count = 0
+
+    while True:
+        count += 1
+        trace.check_iterations(count)
+
+        results = search_listings(
+            parsed["description"],
+            size=parsed["size"],
+            max_price=parsed["max_price"],
+        )
+        session["search_results"] = results
+
+        if results:
+            break
+
+        # THE BRANCH: nothing came back. Loosen one constraint and search again,
+        # and only give up once there is nothing left to loosen.
+        if parsed["size"]:
+            session["relaxed"].append(f"size {parsed['size']}")
+            parsed["size"] = None
+        elif parsed["max_price"] is not None:
+            session["relaxed"].append(f"price limit ${parsed['max_price']:g}")
+            parsed["max_price"] = None
+        else:
+            session["error"] = (
+                "No listings matched that query. Try a different size, a higher "
+                "price ceiling, or a broader description."
+            )
+            return session
+
+    session["selected_item"] = results[0]
+    outfit = suggest_outfit(session["selected_item"], wardrobe)
+    session["outfit_suggestion"] = outfit
+    session["fit_card"] = create_fit_card(outfit, session["selected_item"])
     return session
+
+
+def parse_query(query: str) -> dict:
+    """Regex parse of a plain-language query into description, size, max_price."""
+    size_match = re.search(r"\b(?:size|sz)\s+((?:us\s+)?\w+(?:[./]\w+)*(?:\s+l\d+)?)", query, flags=re.IGNORECASE)
+    price_match = re.search(
+        r"(?:under|below|budget|max(?:imum)?|up to|<=?)\s*\$?\s*(\d+(?:\.\d+)?)",
+        query,
+        flags=re.IGNORECASE,
+    ) or re.search(r"\$\s*(\d+(?:\.\d+)?)", query)
+
+    description = query
+    # Cut the later match first so the earlier span's indices stay valid.
+    for m in sorted(filter(None, [size_match, price_match]), key=lambda m: m.start(), reverse=True):
+        description = description[: m.start()] + " " + description[m.end():]
+
+    description = re.sub(r"\b(?:looking for|find|search(?:ing)?)\b", " ", description, flags=re.IGNORECASE)
+    description = re.sub(r"\s+", " ", description).strip(" ,.-")
+    description = re.sub(r"^(?:a|an|the|for)\s+", "", description, flags=re.IGNORECASE)
+
+    return {
+        "description": description or query.strip(),
+        "size": size_match.group(1).upper() if size_match else None,
+        "max_price": float(price_match.group(1)) if price_match else None,
+    }
 
 
 # ── running it directly ───────────────────────────────────────────────────────
