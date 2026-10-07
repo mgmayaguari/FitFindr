@@ -47,53 +47,32 @@
 
 ## Tool Inventory
 
-<!-- Four lines per tool. This is worth 2 points and it's the single most
-     common place students lose them.
-
-     "Returns a list" earns NOTHING. The description has to say what is IN
-     the list.
-
-     The empty case isn't optional either — it's the thing your loop branches
-     on, and if you don't decide it here you'll discover it as a crash in
-     Milestone 5. -->
-
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters the 40 thrift listings by price ceiling and size, scores the survivors by keyword overlap with the user's description, and returns the best matches.
+- **Inputs:** `description` (str) — keywords such as "vintage graphic tee"; `size` (str or None) — e.g. "M", "W30 L30", "US 8.5"; `max_price` (float or None) — inclusive ceiling. `None` skips that filter.
+- **Returns:** A list of at most `config.SEARCH_RESULT_LIMIT` listing dicts, best match first. Each dict has `id`, `title`, `description`, `category`, `style_tags` (list), `size`, `condition`, `price` (float), `colors` (list), `brand` (str or None), `platform`. Size matches on whole tokens, so "M" matches "S/M" and "M/L" but not "US 9". Listings that score zero on keywords are dropped.
+- **When it has nothing:** An empty list `[]` — never `None`, never an exception. The loop branches on this: it drops the size, then the price cap, and searches again, and sets `session["error"]` only once neither is left.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model for one or two outfits built around the selected listing, using pieces from the user's wardrobe.
+- **Inputs:** `new_item` (dict) — one listing dict from `search_listings`; `wardrobe` (dict) — `{"items": [...]}`, each item having `id`, `name`, `category`, `colors` (list), `style_tags` (list), `notes` (str or None).
+- **Returns:** A non-empty str of outfit suggestions that name specific wardrobe pieces by `name`.
+- **When it has nothing:** When `wardrobe["items"]` is empty, it returns general styling advice for the item as a non-empty str, with no invented wardrobe pieces. It does not return `""` or raise. If the model is unreachable, `generate()` raises `ModelUnavailable`, which the loop catches.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model for a short social-media-style caption about the find.
+- **Inputs:** `outfit` (str) — the text returned by `suggest_outfit`; `new_item` (dict) — the same listing dict.
+- **Returns:** A str of two to four sentences that mentions the item, its price and its platform once each.
+- **When it has nothing:** If `outfit` is empty or whitespace, it returns a descriptive message str (for example "No outfit to write a caption for.") and does not call the model or raise.
 
 ---
 
 ## Planning Loop
 
-<!-- Your branch rule, stated as a rule — the condition AND both paths — plus
-     the file and function that holds it.
-
-     Like this:
-       "If search_listings returns an empty list, put a message in the session
-        and stop. Otherwise take the first result and go to suggest_outfit."
-        — agent.py::run_agent
-
-     The grader checks your code against what you claim here, so the file and
-     function have to be real. -->
-
-**Branch rule:**
+**Branch rule:** If `search_listings` returns an empty list, drop the size filter, then the price cap, and search again. If it is still empty with nothing left to drop, set `session["error"]` to a message telling the user what to change, then stop — `suggest_outfit` and `create_fit_card` never run. Otherwise, take the first result and continue on to `suggest_outfit` and then `create_fit_card`.
 
 **Where it lives:** `agent.py::run_agent`
 
