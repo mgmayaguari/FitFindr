@@ -92,8 +92,30 @@
 **One full query**
 
 ```
-$ python app.py ask '...'
+$ python app.py ask 'looking for a vintage graphic tee under $30'
+```
 
+```bash
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   Here are two outfit ideas combining the Y2K butterfly baby tee with pieces already in the wardrobe:
+
+**Outfit 1: Casual Streetwear (Y2K meets 90s)**
+*   **Top:** Y2K Baby Tee — Butterfly Print
+*   **Bottoms:** Baggy straight-leg jeans (dark wash)
+*   **Outerwear:** Vintage black denim jacket
+*   **Shoes:** Chunky white sneakers
+*   **Accessories:** Black crossbody bag
+*   **Why it works:** The fitted silhouette of the baby tee balances out the volume of the baggy, high-waisted jeans for that classic Y2K proportions game. Layering the slightly cropped black denim jacket on top ties into the streetwear vibe, while the chunky white sneakers and crossbody bag keep it effortless and cohesive.
+
+**Outfit 2: High-Low Contrast (Casual & Earthy)**
+*   **Top:** Y2K Baby Tee — Butterfly Print
+*   **Bottoms:** Wide-leg khaki trousers
+*   **Accessories:** Brown leather belt, Black crossbody bag
+*   **Shoes:** Black combat boots
+*   **Why it works:** This outfit plays on the contrast between the sweet, graphic cottagecore/Y2K energy of the baby tee and the clean, minimal structure of the wide-leg khaki trousers. Tucking the baby tee in with the brown leather belt pulls the look together, and the black combat boots add an unexpected, grounded edge to the softer pink and purple tones in the butterfly print.
+
+  Fit card: My inner 2003 pop star is screaming because I finally tracked down the exact butterfly baby tee I've been obsessing over for months. Scored this little gem on Depop for just $18, and it’s already becoming the anchor piece for everything from baggy jeans to wide-leg trousers. Excuse me while I go practice my lip-syncing in the mirror.
 ```
 
 **The three tools, tested one at a time**
@@ -102,7 +124,6 @@ $ python app.py ask '...'
 
 ```
 $ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
 ```
 
 ```bash
@@ -114,7 +135,6 @@ $ python -c "from tools import search_listings; print(search_listings('graphic t
 
 ```
 python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
-
 ```
 
 ```bash
@@ -140,7 +160,6 @@ Here are two specific outfit ideas using the vintage Levi's 501 jeans and pieces
 
 ```
 python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
-
 ```
 
 ```bash
