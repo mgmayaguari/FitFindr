@@ -19,29 +19,11 @@
 > **The rest of this file is your submission.** Fill it in as you go.
 
 ---
-
-<!-- ─────────────────────────────────────────────────────────────────────────
-     HOW TO USE THIS FILE
-
-     This is your submission. Fill each section in as you finish the milestone
-     it belongs to — don't leave it all to the end.
-
-     Unit 3 asks for the first five sections. Unit 4 adds the five below them.
-     Leave the unit 4 sections alone until then; they're here so you know
-     what's coming.
-
-     Everything is pasted as TEXT. No screenshots, no images, no video links.
-     A typed block of output gets full credit; a picture of the same output
-     gets none.
-     ───────────────────────────────────────────────────────────────────────── -->
-
 <!-- ═══════════════════════ UNIT 3 — THE BUILD ═══════════════════════ -->
 
 ## What This Does
 
-<!-- Three or four sentences: what a user asks for, and what they get back. -->
-
-
+FitFindr helps you shop for secondhand clothes. You type what you want in plain words, like "vintage graphic tee under $30, size M." It searches a list of 40 thrift listings and picks the best match. Then it shows you how to wear that item with clothes you already own, and writes a short caption you could post about your find. If nothing matches, it first tries again without your size, and then without your price limit. If it still finds nothing, it tells you what to change instead of making something up.
 
 ---
 
@@ -76,18 +58,21 @@
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** With regular expressions (regex), in `agent.py::parse_query`, not the model. One pattern finds a size after the word "size" or "sz" (for example "size M" or "size US 8.5"). Another finds a price after words like "under", "below" or "up to", or a bare "$40". Those pieces are cut out of the query, and what is left is the description. The parse runs once, before the loop starts.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** Every result is saved in the session, and the next step reads it back from there. In order:
+1. `query` and `wardrobe` are set when the session is created.
+2. `parsed` (description, size, max_price) is set from the query. If a search comes back empty, the loop sets size and then max_price to `None` in here, so it always shows what was actually searched.
+3. `relaxed` lists each limit that was dropped, such as `["size M"]`.
+4. `search_results` is saved after every search, so it holds the latest one.
+5. `selected_item` is `search_results[0]`.
+6. `outfit_suggestion` is what `suggest_outfit` returns, given `selected_item` and `wardrobe`.
+7. `fit_card` is what `create_fit_card` returns, given `outfit_suggestion` and `selected_item`.
+8. `error` stays `None` unless the loop stops early. Then it holds the message, and `outfit_suggestion` and `fit_card` stay `None`.
 
 ---
 
 ## Sample Run
-
-<!-- Two things go here.
-
-     1. One FULL query and its output, pasted as text.
-     2. Your three per-tool terminal tests — the command and what it printed. -->
 
 **One full query**
 
@@ -178,15 +163,16 @@ Nothing beats the heavy, stiff-in-the-best-way cotton of jeans made decades befo
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked Claude to check my first version of `run_agent` for a real agent loop.
+- *What came back:* It pointed out that my `while True` was not really a loop. Every path ended in a `return`, so it ran exactly once and `check_iterations` could never trip. It suggested parsing the query once before the loop, and retrying on an empty result by dropping the size and then the price cap.
+- *What I changed:* I accepted the retry and rewrote the loop that way. I also made the loop read everything back through `session`, including `session["parsed"]`, so the session shows what was really searched. Then I updated my Branch rule in this README to match the new behavior.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked Claude to test `create_fit_card` on its own, using the same item and outfit five times.
+- *What came back:* All five captions were word-for-word identical. Turning the cache off gave five different captions, but only 2 different opening sentences, because the model kept starting with "Scored these…".
+- *What I changed:* I added a line to the prompt telling the model not to open with "Scored" or "Found" and to pick a new way in. The rerun gave 5 different openings out of 5. I also learned that `run_eval.py` already turns the cache off, so I revised criterion 4 to say "cache off" without lowering the 4-of-5 target.
+
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
