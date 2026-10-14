@@ -256,13 +256,44 @@ that produced it:
 **Happy path**
 
 ```
-
+python app.py ask 'vintage graphic tee under $30' --trace
+```
+``` bash
+[1] search_listings (via MCP)
+      in:  description='vintage graphic tee', size=None, max_price=30.0
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+      →    found results, moving on
+[2] select item
+      in:  search_results[0]
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+[3] suggest_outfit
+      in:  item={'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby' …
+      out: Here are two outfit ideas combining the Y2K butterfly baby tee with pieces already in the wardrobe:  **Outfit …
+[4] create_fit_card
+      in:  outfit (1311 chars), item={'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super'…
+      out: My inner 2003 pop star is screaming because I finally tracked down the exact butterfly baby tee I've been obse…
 ```
 
 **Empty search**
 
 ```
+python app.py ask 'Barcelona soccer jersey under $20' --trace
+```
 
+```bash
+[1] search_listings (via MCP)
+      in:  description='Barcelona soccer jersey', size=None, max_price=20.0
+      out: [] (empty)
+[2] relax
+      →    branch: empty, dropping price limit $20
+[3] search_listings (via MCP)
+      in:  description='Barcelona soccer jersey', size=None, max_price=None
+      out: [] (empty)
+[4] stop
+      out: No listings matched that query. Try a different size, a higher price ceiling, or a broader description.
+      →    branch: empty and nothing left to drop, stopping
+
+  No listings matched that query. Try a different size, a higher price ceiling, or a broader description.
 ```
 
 **On the MCP move:** <!-- what changed in your code, and whether anything

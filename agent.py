@@ -19,6 +19,7 @@ import trace
 from mcp_client import call_tool
 from tools import suggest_outfit, create_fit_card
 from generate import ModelUnavailable
+from trace import step, start_trace
 
 
 # ── session state ─────────────────────────────────────────────────────────────
@@ -108,6 +109,9 @@ def run_agent(query: str, wardrobe: dict) -> dict:
       • A handler for ModelUnavailable, so a bad key produces a message rather
         than a stack trace. The import is already at the top of this file.
     """
+
+    start_trace()
+
     session = new_session(query, wardrobe)
     session["parsed"] = parse_query(query)
 
@@ -123,6 +127,17 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             "max_price": session["parsed"]["max_price"],
         })
 
+        step(
+            "search_listings (via MCP)",
+            inputs=(
+                f"description={session['parsed']['description']!r}, "
+                f"size={session['parsed']['size']!r}, "
+                f"max_price={session['parsed']['max_price']!r}"
+            ),
+            returned=session["search_results"],
+            note="found results, moving on" if session["search_results"] else "",
+        )
+
         if session["search_results"]:
             break
 
@@ -130,20 +145,43 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         # and only give up once there is nothing left to loosen.
         if session["parsed"]["size"]:
             session["relaxed"].append(f"size {session['parsed']['size']}")
+
+            step("relax", note=f"branch: empty, dropping size {session['parsed']['size']}")
+
             session["parsed"]["size"] = None
         elif session["parsed"]["max_price"] is not None:
             session["relaxed"].append(f"price limit ${session['parsed']['max_price']:g}")
+
+            step("relax", note=f"branch: empty, dropping price limit ${session['parsed']['max_price']:g}")
+
             session["parsed"]["max_price"] = None
         else:
             session["error"] = (
                 "No listings matched that query. Try a different size, a higher "
                 "price ceiling, or a broader description."
             )
+
+            step("stop", returned=session["error"], note="branch: empty and nothing left to drop, stopping")
+
             return session
 
     session["selected_item"] = session["search_results"][0]
+    step("select item", inputs="search_results[0]", returned=session["selected_item"])
+
     session["outfit_suggestion"] = suggest_outfit(session["selected_item"], session["wardrobe"])
+    step(
+        "suggest_outfit",
+        inputs=f"item={session['selected_item']!r}, wardrobe items={len(session['wardrobe']['items'])}",
+        returned=session["outfit_suggestion"],
+    )
+
     session["fit_card"] = create_fit_card(session["outfit_suggestion"], session["selected_item"])
+    step(
+        "create_fit_card",
+        inputs=f"outfit ({len(session['outfit_suggestion'])} chars), item={session['selected_item']!r}",
+        returned=session["fit_card"],
+    )
+
     return session
 
 
