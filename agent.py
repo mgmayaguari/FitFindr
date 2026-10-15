@@ -168,19 +168,25 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     session["selected_item"] = session["search_results"][0]
     step("select item", inputs="search_results[0]", returned=session["selected_item"])
 
-    session["outfit_suggestion"] = suggest_outfit(session["selected_item"], session["wardrobe"])
-    step(
-        "suggest_outfit",
-        inputs=f"item={session['selected_item']!r}, wardrobe items={len(session['wardrobe']['items'])}",
-        returned=session["outfit_suggestion"],
-    )
+    # The two model calls can fail outright (bad key, no network, overloaded
+    # service). Say so in the session instead of showing a stack trace.
+    try:
+        session["outfit_suggestion"] = suggest_outfit(session["selected_item"], session["wardrobe"])
+        step(
+            "suggest_outfit",
+            inputs=f"item={session['selected_item']!r}, wardrobe items={len(session['wardrobe']['items'])}",
+            returned=session["outfit_suggestion"],
+        )
 
-    session["fit_card"] = create_fit_card(session["outfit_suggestion"], session["selected_item"])
-    step(
-        "create_fit_card",
-        inputs=f"outfit ({len(session['outfit_suggestion'])} chars), item={session['selected_item']!r}",
-        returned=session["fit_card"],
-    )
+        session["fit_card"] = create_fit_card(session["outfit_suggestion"], session["selected_item"])
+        step(
+            "create_fit_card",
+            inputs=f"outfit ({len(session['outfit_suggestion'])} chars), item={session['selected_item']!r}",
+            returned=session["fit_card"],
+        )
+    except ModelUnavailable as exc:
+        session["error"] = str(exc)
+        step("stop", returned=session["error"], note="model unavailable, stopping")
 
     return session
 

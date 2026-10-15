@@ -363,7 +363,7 @@ I’ve been chasing this exact shade of navy for three months, so seeing it pop 
 
 No criterion was missed in this run, so there is no miss to diagnose. Two things I noticed are worth recording:
 
-- **A model outage, not a loop failure.** In an earlier run (`results/run_2026-10-14_2214_before.md`), try 3 of the empty-wardrobe diagnostic crashed with `ModelUnavailable: Couldn't reach the model: 503 UNAVAILABLE`. That is the model's output place, not the tool, branch or session: the service was overloaded, and `run_agent` has no handler for `ModelUnavailable` yet, so the run ended as a crash instead of a message. It was not one of the five criteria, and it did not recur in the later run.
+- **A model outage, not a loop failure.** In an earlier run (`results/run_2026-10-14_2214_before.md`), try 3 of the empty-wardrobe diagnostic crashed with `ModelUnavailable: Couldn't reach the model: 503 UNAVAILABLE`. That is the model's output place, not the tool, branch or session: the service was overloaded, and at that point `run_agent` had no handler for `ModelUnavailable`, so the run ended as a crash instead of a message (fixed in The Improvement below). It was not one of the five criteria, and it did not recur in the later run.
 - **Criteria 4 and 5 are scored through a proxy.** `run_eval.py` only runs `run_agent`, so criterion 4 repeats the same item with a new model outfit each try, and criterion 5 checks one ceiling. Both pass, but they test a little less than the criteria as written (a fixed outfit, and five ceilings through `search_listings`).
 
 ---
@@ -439,26 +439,30 @@ full. -->
 
      `python run_eval.py --label after` -->
 
-**What I changed:**
+**What I changed:** I added a handler for `ModelUnavailable` in `agent.py::run_agent`. The two model calls (`suggest_outfit` and `create_fit_card`) now sit inside one `try`. If either raises `ModelUnavailable`, the loop saves the message in `session["error"]`, adds a `stop` step to the trace ("model unavailable, stopping"), and returns the session instead of crashing. If only `create_fit_card` fails, the outfit is kept and `fit_card` stays `None`.
 
-**Which failure it was meant to fix:**
+**Which failure it was meant to fix:** The crash in `results/run_2026-10-14_2214_before.md`, empty-wardrobe diagnostic, try 3: `ModelUnavailable: Couldn't reach the model: 503 UNAVAILABLE… high demand`. The model service was overloaded, nothing in the loop caught the error, and that try ended as a crash instead of a message. It's a model-side failure, but the loop's job is to turn it into something the user can act on.
 
 ### Run Log — After
 
+Source: `results/run_2026-10-14_2340_after.md`, produced by `run_eval.py::main` (5 tries per scenario, caching off, temperature 0.9). Same scenarios as the before run.
+
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
+| 2. Impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
+| 3. Item search picked is the item suggest_outfit used | 5 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
+| 4. Fit card gives different words on repeat runs | 4 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
+| 5. Search results respect the price ceiling | 5 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
 
-**Did it help, and how do I know:**
+- **Criterion 1** (`vintage graphic tee under $30`): 5 of 5 tries finished with a fit card, 10 search results, Y2K Baby Tee ($18, depop).
+- **Criterion 2** (`designer ballgown size XXS under $5`): 5 of 5 tries stopped at step 6 with the "No listings matched…" message and no `suggest_outfit` or `create_fit_card` step.
+- **Criterion 3** (`vintage graphic hoodie`): in 5 of 5 tries the trace shows `suggest_outfit` and `create_fit_card` both receiving `lst_015`, the selected Vintage Graphic Hoodie.
+- **Criterion 4** (`leather bomber jacket`): 5 different first sentences and all 5 captions contain "$75".
+- **Criterion 5** (`jacket under $45`): 3 results in 5 of 5 tries, and the selected 90s Track Jacket is exactly $45.0.
+- **Diagnostic, empty wardrobe** (`denim jacket under $50`): 5 of 5 tries completed. No try crashed.
 
-<!-- If it made things worse, say that. Honestly reported, that earns full
-     credit and is more interesting than one that worked. -->
-
-
+**Did it help, and how do I know:** The table did not change: the five criteria were MET before and are MET after, and no try crashed in either run. That is not evidence that the handler works, because the 503 did not happen in this run, so the handler never ran. I only know it works from a test where I replaced the model calls with stubs that raise `ModelUnavailable`. With `suggest_outfit` failing, the loop stopped at step 3 with `error` set to the message and `outfit_suggestion` and `fit_card` both `None`. With `create_fit_card` failing, it kept the outfit, left `fit_card` as `None`, and set the same `error`. What I can claim is that a model failure now ends the run with a message, as shown by that test, and nothing the criteria measure got worse. What I can't claim is that this run proves it, since no real failure occurred.
 
 ---
 
@@ -468,41 +472,14 @@ full. -->
      you did. "I ran out of time" is fine if it's true. Pretending nothing is
      left is not. -->
 
+No criterion is MISSED in the after run, but these are still weak or untested:
 
-
-<!-- ═════════════════════════════════════════════════════════════════════
-
-     SUBMISSION CHECKLIST — unit 3
-
-       [ ] criteria.md has five numbered criteria, each with a target
-       [ ] Each criterion has a reason underneath it
-       [ ] All five unit 3 sections above have real content
-       [ ] Tool Inventory: all three tools, inputs WITH TYPES, a specific
-           return value, and the empty case
-       [ ] Planning Loop names the branch rule and agent.py::run_agent
-       [ ] Sample Run: one full query plus the three per-tool tests, as text
-       [ ] At least four new commits
-       [ ] Repository URL submitted — WRITE IT DOWN, you submit the same one
-           next unit
-
-     SUBMISSION CHECKLIST — unit 4
-
-       [ ] mcp_server.py exists with one tool registered
-           (or a written record of exactly where the rewire broke)
-       [ ] Run Log — Before, five criteria, five tries each
-       [ ] Real output pasted underneath, naming file and function
-       [ ] A verdict on every criterion
-       [ ] A diagnosis for every miss, naming a place AND a mechanism
-       [ ] Loop Trace, with the MCP call visible in it
-       [ ] All three failure modes triggered and handled
-       [ ] One improvement, with Run Log — After in the same format
-       [ ] What's Still Broken
-       [ ] At least four new commits
-       [ ] The SAME repository URL as last unit
-
-     Do not delete and recreate this repository. Your commit history is what
-     shows your criteria existed before your results did.
-     ═════════════════════════════════════════════════════════════════════ -->
+- **The user is not told when a limit was dropped.** When a search comes back empty, the loop drops the size and then the price limit and records it in `session["relaxed"]`. Nothing outside `agent.py` reads that field, so someone who asked for size XS and got a different size is not told. I'd print `relaxed` in the app and in `_show()`. I stopped because no criterion measures it.
+- **A 503 ends the run.** I tested this on my side by making the model client raise the exact 503 text from the crashed run, so the real `generate()` path produced `ModelUnavailable`. The handler worked: the run stopped with `error` set and no stack trace, whether the 503 hit the first model call (`outfit_suggestion` and `fit_card` stayed `None`) or the second (the outfit was kept, `fit_card` stayed `None`), and `run_eval.py` recorded both as stopped early, not crashed. Two gaps remain. The message the user sees is the raw text ("Couldn't reach the model: 503 UNAVAILABLE. {'error': {…"), because `generate.py` only rewrites key, 404 and network errors. And a 503 is not retried, because `generate()` only retries rate limits, even though the service says these spikes are usually temporary. A retry with a short wait would probably save most of these runs.
+- **The handler has not seen a real failure.** The 503 did not happen in the after run, so the only evidence it works is the simulated test above.
+- **Criteria 4 and 5 are scored through a proxy.** `run_eval.py` only runs `run_agent`. Criterion 4 repeats the same item but the model writes a new outfit each try, and criterion 5 checks a single ceiling ($45) instead of five. A direct test of `create_fit_card` with a fixed outfit, and of `search_listings` with five ceilings, would match the criteria as written.
+- **The fit card check compares whole sentences.** Two captions that open "There is genuinely nothing better than a hoodie…" and "There is literally nothing better than a thrift find…" count as different even though a reader would call them the same. Comparing the first few words would be stricter.
+- **Search results are loosely ranked.** A query like "vintage graphic tee" also returns a belt, cargo pants and a slip dress, because one shared word is enough to score. The loop only takes the first result, so it hasn't mattered, but a cutoff of two matching words would clean up the list.
 
 ---
 

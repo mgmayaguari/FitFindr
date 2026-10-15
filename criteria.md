@@ -82,6 +82,21 @@ same text five times (1 distinct opening) and `TEMPERATURE` set to 0. The price
 check is separate because the model can drop it from a caption that reads well;
 the prompt asks for it, so 4 of 5 allows one lapse.
 
+> **Revised in unit 4:** Given the same item passed to `create_fit_card` 5
+> times **with the cache off**, at least 4 of the 5 captions have a first
+> sentence that no other caption shares, and at least 4 of the 5 captions
+> contain the item's price. The numbers are unchanged.
+>
+> **Why revised:** The original said "with `CACHE_ENABLED` left on", which
+> couldn't be measured. With the cache on, `generate()` returns a saved answer
+> for an identical prompt, so five tries are one real caption plus four
+> replays, and `run_eval.py` turns the cache off for exactly that reason. The
+> condition was wrong, not the target, so I did not lower the 4-of-5 bar. When
+> I scored it with the cache off in `run_eval.py`, the 5 fit cards for the
+> same item had 5 different first sentences and all 5 contained the price.
+> That run repeats the item, but the model writes a new outfit each try, so the
+> input is not one fixed outfit.
+
 ---
 
 ## 5. Search results respect the price ceiling
