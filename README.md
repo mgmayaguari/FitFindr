@@ -353,15 +353,18 @@ I’ve been chasing this exact shade of navy for three months, so seeing it pop 
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | Matching query completes all three tools | 4 of 5 | MET | 5 of 5 tries finished with `error` unset and a fit card (`results/run_2026-10-14_2243_before.md`, "matching query completes"). |
+| 2 | Impossible query stops before the second tool | 5 of 5 | MET | 5 of 5 tries stopped at step 6 with the "No listings matched…" message, 0 search results, and no `suggest_outfit` or `create_fit_card` step in the trace. |
+| 3 | Item search picked is the item suggest_outfit used | 5 of 5 | MET | In 5 of 5 tries the trace shows `suggest_outfit` and `create_fit_card` both receiving `lst_015`, and the selected item was the Vintage Graphic Hoodie, which is `lst_015`. I matched by title because the file prints the selected item's title, not its id. |
+| 4 | Fit card gives different words on repeat runs | 4 of 5 | MET | The 5 fit cards had 5 different first sentences, and all 5 contained "$75". Same item each try, but the model wrote a new outfit each time, so the input wasn't one fixed outfit. `run_eval.py` turns the cache off, and the criterion as written says cache on, so I scored it with the cache off. |
+| 5 | Search results respect the price ceiling | 5 of 5 | MET | `jacket under $45` returned 3 results in 5 of 5 tries, and the selected 90s Track Jacket is exactly $45.0, so the ceiling is inclusive. The file prints only the selected item's price. The other two ($42 and $33) come from `data/listings.json`. The scenario tests one ceiling through `run_agent`, not five through `search_listings` directly. |
 
 **Diagnoses**
 
+No criterion was missed in this run, so there is no miss to diagnose. Two things I noticed are worth recording:
 
+- **A model outage, not a loop failure.** In an earlier run (`results/run_2026-10-14_2214_before.md`), try 3 of the empty-wardrobe diagnostic crashed with `ModelUnavailable: Couldn't reach the model: 503 UNAVAILABLE`. That is the model's output place, not the tool, branch or session: the service was overloaded, and `run_agent` has no handler for `ModelUnavailable` yet, so the run ended as a crash instead of a message. It was not one of the five criteria, and it did not recur in the later run.
+- **Criteria 4 and 5 are scored through a proxy.** `run_eval.py` only runs `run_agent`, so criterion 4 repeats the same item with a new model outfit each try, and criterion 5 checks one ceiling. Both pass, but they test a little less than the criteria as written (a fixed outfit, and five ceilings through `search_listings`).
 
 ---
 
