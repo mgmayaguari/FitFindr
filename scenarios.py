@@ -35,18 +35,38 @@ SCENARIOS = [
         "wardrobe": "empty",
         "criterion": None,
     },
-    # TODO: add what your criteria 3, 4 and 5 need.
-    #
-    # Set "criterion" to the number in criteria.md that the scenario tests.
-    # "criterion": None means a diagnostic run — useful to have, but it isn't
-    # one of your five, and run_eval.py marks it as such in the table.
-    #
-    # For a state criterion, any normal query works — what you're checking is
-    # what ends up in the session, not what the user typed.
-    #
-    # For a fit-card criterion, you probably want the SAME query listed more
-    # than once, or several different items, depending on what your criterion
-    # actually says.
+    {
+        # A clean single-item match. Criterion 3 — state handoff: the id in
+        # session["selected_item"] should be the same id passed into
+        # suggest_outfit's new_item argument. Any normal query works here;
+        # what matters is what ends up in the session, not what was typed.
+        "name": "selected item flows into suggest_outfit",
+        "query": "vintage graphic hoodie",
+        "wardrobe": "example",
+        "criterion": 3,
+    },
+    {
+        # "leather bomber jacket" scores highest against a single listing
+        # (lst_022, $75), so the same item is selected every try — run_eval.py
+        # already runs each scenario 5 times, which gives 5 fit cards for the
+        # same item to compare captions across (the outfit text will also
+        # differ a little each try, since it comes from the model too).
+        # Criterion 4.
+        "name": "fit card caption varies across repeated runs",
+        "query": "leather bomber jacket",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # A query where several listings share the "jacket" keyword at
+        # different prices (lst_004 at exactly $45, lst_007 at $42, lst_032
+        # at $33) — a good boundary case for the ceiling filter, including an
+        # item priced right at max_price. Criterion 5.
+        "name": "search results respect the price ceiling",
+        "query": "jacket under $45",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
 ]
 
 WARDROBES = ("example", "empty")

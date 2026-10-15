@@ -194,17 +194,141 @@ Nothing beats the heavy, stiff-in-the-best-way cotton of jeans made decades befo
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
+| 2. Impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
+| 3. Item search picked is the item suggest_outfit used | 5 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
+| 4. Fit card gives different words on repeat runs | 4 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
+| 5. Search results respect the price ceiling | 5 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 — MET |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+Source: `results/run_2026-10-14_2243_before.md`, produced by `run_eval.py::main` (5 tries per scenario, caching off, temperature 0.9).
+
+- **Criterion 1** (`vintage graphic tee under $30`): all 5 tries finished without stopping early. Each had 10 search results, picked the Y2K Baby Tee — Butterfly Print ($18.0, depop), and ended with a fit card.
+- **Criterion 2** (`designer ballgown size XXS under $5`): all 5 tries stopped early with "No listings matched that query. Try a different size, a higher price ceiling, or a broader description." Each had 0 search results and no selected item, and the trace shows no `suggest_outfit` step.
+- **Criterion 3** (`vintage graphic hoodie`): in all 5 tries the selected item was Vintage Graphic Hoodie — Faded Black, and the trace shows both `suggest_outfit` and `create_fit_card` receiving `lst_015`. The file prints the selected item's title, not its id, so I matched them by title.
+- **Criterion 4** (`leather bomber jacket`): all 5 tries selected 90s Leather Bomber — Black ($75.0, depop). The 5 fit cards had 5 different first sentences, and all 5 contained "$75". This run repeats the same item, but the outfit text is written by the model each try, so it isn't one fixed outfit.
+- **Criterion 5** (`jacket under $45`): all 5 tries returned 3 results (90s Track Jacket, Denim Jacket — Light Wash, Cropped, and Shacket — Olive Canvas) and selected the 90s Track Jacket at exactly $45.0, so the ceiling is inclusive. The file prints only the selected item's price. The other two prices ($42 and $33) come from `data/listings.json`.
+- **Diagnostic, empty wardrobe** (`denim jacket under $50`, not one of the five): all 5 tries completed and picked the Denim Jacket — Light Wash, Cropped ($42.0, poshmark).
+
+**Real output from one try per criterion**, pasted as text from `results/run_2026-10-14_2243_before.md`, each from try 1. The trace comes from `agent.py::run_agent` through `trace.py::step`. The search steps come from `tools.py::search_listings`, called through `mcp_server.py`. The fit card comes from `tools.py::create_fit_card`. `run_eval.py::main` wrote it all to the file.
+
+Criterion 1 — `vintage graphic tee under $30`: finished with a fit card.
 
 ```
+selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+search_results: 10
 
+[1] search_listings (via MCP)
+      in:  description='vintage graphic tee', size=None, max_price=30.0
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+      →    found results, moving on
+[2] select item
+      in:  search_results[0]
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+[3] suggest_outfit
+      in:  item={'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby …
+      out: Here are two outfit ideas combining the new Y2K Butterfly Baby Tee with pieces already in the wardrobe:  ### O…
+[4] create_fit_card
+      in:  outfit (1353 chars), item={'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super c…
+      out: My inner fourteen-year-old just won a small, highly specific war against my current closet. I finally tracked …
+
+Fit card:
+My inner fourteen-year-old just won a small, highly specific war against my current closet. I finally tracked down this butterfly print Y2K baby tee on Depop for just $18.00, and honestly, styling it with baggy denim and chunky sneakers instantly cures all my outfit fatigue. Let the early-2000s renaissance continue.
+```
+
+Criterion 2 — `designer ballgown size XXS under $5`: stopped at step 6, no `suggest_outfit` or `create_fit_card`.
+
+```
+selected_item: (none)
+search_results: 0
+
+[1] search_listings (via MCP)
+      in:  description='designer ballgown', size='XXS', max_price=5.0
+      out: [] (empty)
+[2] relax
+      →    branch: empty, dropping size XXS
+[3] search_listings (via MCP)
+      in:  description='designer ballgown', size=None, max_price=5.0
+      out: [] (empty)
+[4] relax
+      →    branch: empty, dropping price limit $5
+[5] search_listings (via MCP)
+      in:  description='designer ballgown', size=None, max_price=None
+      out: [] (empty)
+[6] stop
+      out: No listings matched that query. Try a different size, a higher price ceiling, or a broader description.
+      →    branch: empty and nothing left to drop, stopping
+```
+
+Criterion 3 — `vintage graphic hoodie`: `selected_item` is the hoodie, and the trace shows `suggest_outfit` receiving `lst_015`.
+
+```
+selected_item: Vintage Graphic Hoodie — Faded Black ($26.0, depop)
+search_results: 10
+
+[1] search_listings (via MCP)
+      in:  description='vintage graphic hoodie', size=None, max_price=None
+      out: 10 items: Vintage Graphic Hoodie — Faded Black, Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style … +7 more
+      →    found results, moving on
+[2] select item
+      in:  search_results[0]
+      out: Vintage Graphic Hoodie — Faded Black ($26.0, depop)
+[3] suggest_outfit
+      in:  item={'id': 'lst_015', 'title': 'Vintage Graphic Hoodie — Faded Black', 'description': 'Faded black pullover h…
+      out: Here are two specific outfit ideas using the new Vintage Graphic Hoodie and pieces already in your wardrobe:  …
+[4] create_fit_card
+      in:  outfit (1360 chars), item={'id': 'lst_015', 'title': 'Vintage Graphic Hoodie — Faded Black', 'description': 'F…
+      out: There is genuinely nothing better than a hoodie that looks like it survived three different underground 90s me…
+
+Fit card:
+There is genuinely nothing better than a hoodie that looks like it survived three different underground 90s metal tours. Snagged this faded black vintage graphic piece on depop for just $26, and honestly, it’s about to become my entire personality. Whether I'm throwing it on with baggy indigo denim and combat boots or balancing out the grunge with crisp khaki trousers, the fit is officially sorted.
+```
+
+Criterion 4 — `leather bomber jacket`: try 1's fit card (the other four tries wrote different first sentences).
+
+```
+selected_item: 90s Leather Bomber — Black ($75.0, depop)
+search_results: 7
+
+[1] search_listings (via MCP)
+      in:  description='leather bomber jacket', size=None, max_price=None
+      out: 7 items: 90s Leather Bomber — Black, 90s Track Jacket — Navy/White Stripe, Denim Jacket — Light Wash, Cropped … +4 more
+      →    found results, moving on
+[2] select item
+      in:  search_results[0]
+      out: 90s Leather Bomber — Black ($75.0, depop)
+[3] suggest_outfit
+      in:  item={'id': 'lst_022', 'title': '90s Leather Bomber — Black', 'description': 'Genuine leather bomber jacket. C…
+      out: Here are two specific outfit combinations using the new 90s Leather Bomber and pieces from your wardrobe:  ###…
+[4] create_fit_card
+      in:  outfit (1468 chars), item={'id': 'lst_022', 'title': '90s Leather Bomber — Black', 'description': 'Genuine lea…
+      out: There is something deeply spiritual about driving home at midnight in a jacket that smells faintly of someone …
+
+Fit card:
+There is something deeply spiritual about driving home at midnight in a jacket that smells faintly of someone else's cigarettes and 1998. Snagged this ultimate black 90s leather bomber on Depop for $75, and honestly, the math is just working in my favor. Currently debating whether to lean into the chunky sneaker streetwear agenda or go full grunge with my heaviest combat boots.
+```
+
+Criterion 5 — `jacket under $45`: 3 results, and the selected jacket is exactly $45.0.
+
+```
+selected_item: 90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+search_results: 3
+
+[1] search_listings (via MCP)
+      in:  description='jacket', size=None, max_price=45.0
+      out: 3 items: 90s Track Jacket — Navy/White Stripe, Denim Jacket — Light Wash, Cropped, Shacket — Olive Canvas
+      →    found results, moving on
+[2] select item
+      in:  search_results[0]
+      out: 90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+[3] suggest_outfit
+      in:  item={'id': 'lst_004', 'title': '90s Track Jacket — Navy/White Stripe', 'description': 'Authentic 90s track ja…
+      out: Here are two specific outfit combinations using the new 90s track jacket and pieces already in your wardrobe: …
+[4] create_fit_card
+      in:  outfit (1263 chars), item={'id': 'lst_004', 'title': '90s Track Jacket — Navy/White Stripe', 'description': 'A…
+      out: I’ve been chasing this exact shade of navy for three months, so seeing it pop up on Poshmark for $45 felt susp…
+
+Fit card:
+I’ve been chasing this exact shade of navy for three months, so seeing it pop up on Poshmark for $45 felt suspiciously like fate. Zipped up with khakis or thrown over a white tank, this 90s track jacket is officially my lazy-day uniform. Now I just need somewhere cool to wear it.
 ```
 
 ---
